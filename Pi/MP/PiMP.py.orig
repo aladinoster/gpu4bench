@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+# If numpy is loaded without being used, it does not work !
+from math import exp
+from random import random
+# Multithread library call
+#import multiprocessing
+from multiprocessing import Pool
+import numpy
+from numpy.random import rand
+
+
+def MainLoop(iterations):
+
+    total=numpy.int(0)
+    for i in range(0,iterations):
+        # Random access coordonate
+        #x,y=random(),random()
+        x,y=rand(),rand()
+
+        if ((x*x+y*y) < 1.0):
+                total+=1
+
+    return(total)
+
+if __name__=='__main__':
+
+    # Machine
+    CORES=4
+    
+    # A=numpy.zeros(10)
+    
+    # Au dessus de 4 10^7, le MPI ne veut plus se lancer...
+    Iterations=100000000
+
+    total=0
+    
+    # Define iterations to send to each node
+    if Iterations%CORES==0:
+        iterations=Iterations/CORES
+    else:
+        iterations=Iterations/CORES+1
+        print "%i iterations will be send to each core" % iterations
+        
+    IT=[]
+    for i in range(0,CORES):
+        IT.append(iterations)
+        
+    print IT
+
+    # Define the number of processes to be launched at a time
+    # POOL: resources to be used ( 
+    # pool=Pool(processes=CORES)
+    pool=Pool(processes=CORES)
+    print "Start on %i processors..." % CORES
+
+    # MAP: distribution of usecases T to be applied to MetropolisStrip 
+    Results=pool.map(MainLoop,IT)
+    
+    # print sum(Results.get())
+    print Results

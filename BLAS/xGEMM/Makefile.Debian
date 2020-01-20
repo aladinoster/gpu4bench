@@ -1,0 +1,129 @@
+SOURCE=xGEMM.c
+
+CC=gcc-4.6
+FC=gfortran-4.6
+CFLAGS=-Wall -O3
+LDFLAGS=-lm
+CUDADIR=
+CUDASRC=/usr/share/doc/nvidia-cuda-doc/examples
+THUNKING=fortran_thunking.c
+CUDASRCINC=fortran_common.h
+CUDAINC=/usr/include
+CUDALIB=/usr/lib/x86_64-linux-gnu/
+
+PATCHTHUNKING=patch_thunking.h
+
+GSLINC=/usr/include/gsl
+
+GOTO2=/opt/GotoBLAS2
+
+OPENBLAS=/usr/lib/openblas-base
+
+ACML=/opt/acml
+ACMLINC=$(ACML)/gfortran64_mp/include
+ACMLLIB=$(ACML)/gfortran64_mp/lib
+
+ATLAS=/usr/lib/atlas-base
+
+EXECUTABLE=cblas fblas gsl cublas thunking openblas
+
+FORMAT=DOUBLE
+#FORMAT=FLOAT
+
+#DIRECTIVES=-D$(FORMAT) -DPRINT -DUNIT
+#DIRECTIVES=-D$(FORMAT) -DUNIT -DRESULTS -DQUIET
+DIRECTIVES=-DUNIT -DQUIET
+
+all: $(EXECUTABLE)
+
+cblas: $(SOURCE)
+
+	$(CC) -L$(ATLAS) $(CFLAGS) $(DIRECTIVES) -DFLOAT -DCBLAS $(LDFLAGS) \
+		$(SOURCE) -latlas -lcblas -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -L$(ATLAS) $(CFLAGS) $(DIRECTIVES) -DDOUBLE -DCBLAS $(LDFLAGS) \
+		$(SOURCE) -latlas -lcblas -o $(SOURCE:.c=)_DP_$@
+
+gotoblas: $(SOURCE)
+
+	$(CC) $(CFLAGS) $(DIRECTIVES) -DFLOAT -DCBLAS $(LDFLAGS) \
+		$(SOURCE) $(GOTO2)/libgoto2.a -lpthread -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) $(CFLAGS) $(DIRECTIVES) -DDOUBLE -DCBLAS $(LDFLAGS) \
+		$(SOURCE) $(GOTO2)/libgoto2.a -lpthread -o $(SOURCE:.c=)_DP_$@
+
+openblas: $(SOURCE)
+
+	$(CC) $(CFLAGS) $(DIRECTIVES) -DFLOAT -DCBLAS $(LDFLAGS) \
+		$(SOURCE) $(OPENBLAS)/libopenblas.a -lpthread -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) $(CFLAGS) $(DIRECTIVES) -DDOUBLE -DCBLAS $(LDFLAGS) \
+		$(SOURCE) $(OPENBLAS)/libopenblas.a -lpthread -o $(SOURCE:.c=)_DP_$@
+
+acml: $(SOURCE)
+
+	$(CC) -I$(ACMLINC) $(CFLAGS) $(DIRECTIVES) -DFLOAT -DACML $(LDFLAGS) \
+		$(SOURCE) -L$(ACMLLIB) -lacml_mp -lacml_mv \
+		-lgomp -lgfortran -lpthread -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -I$(ACMLINC) $(CFLAGS) $(DIRECTIVES) -DDOUBLE -DACML $(LDFLAGS) \
+		$(SOURCE) -L$(ACMLLIB) -lacml_mp -lacml_mv \
+		-lgomp -lgfortran -lpthread -o $(SOURCE:.c=)_DP_$@
+
+fblas: $(SOURCE)
+
+	$(CC) -L$(ATLAS) $(CFLAGS) $(DIRECTIVES) -DFLOAT -DFBLAS $(LDFLAGS) \
+		$(SOURCE) -latlas -lf77blas -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -L$(ATLAS) $(CFLAGS) $(DIRECTIVES) -DDOUBLE -DFBLAS $(LDFLAGS) \
+		$(SOURCE) -latlas -lf77blas -o $(SOURCE:.c=)_DP_$@
+
+
+gsl: $(SOURCE)
+
+	$(CC) -I$(GSLINC) $(CFLAGS) $(DIRECTIVES) -DFLOAT \
+		-DGSL $(LDFLAGS) \
+		$(SOURCE) -lgslcblas -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -I$(GSLINC) $(CFLAGS) $(DIRECTIVES) -DDOUBLE \
+		-DGSL $(LDFLAGS) \
+		$(SOURCE) -lgslcblas -o $(SOURCE:.c=)_DP_$@
+
+cublas: $(SOURCE)
+
+	$(CC) -I$(CUDAINC) -L$(CUDALIB) $(CFLAGS) -DFLOAT \
+		-DCUBLAS $(LDFLAGS) \
+		$(DIRECTIVES) $(SOURCE) -lcublas -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -I$(CUDAINC) -L$(CUDALIB) $(CFLAGS) -DDOUBLE \
+		-DCUBLAS $(LDFLAGS) \
+		$(DIRECTIVES) $(SOURCE) -lcublas -o $(SOURCE:.c=)_DP_$@
+
+thunking: $(SOURCE)
+
+	# Copy of source for thunking CUBLAS approach
+	cp $(CUDASRC)/$(THUNKING) $(CUDASRC)/$(THUNKING:.c=.h) \
+		$(CUDASRC)/$(CUDASRCINC) .
+	# Patch Thunking prototypes to compile on Debian Lenny
+	$(CC) -DCUBLAS_GFORTRAN -I$(CUDAINC) $(CFLAGS) -c $(THUNKING)
+
+	$(CC) -DCUBLAS_GFORTRAN \
+		-I$(CUDAINC) -L$(CUDALIB) $(CFLAGS) -DFLOAT -DTHUNKING \
+		$(LDFLAGS) $(DIRECTIVES) $(SOURCE) \
+		$(THUNKING:.c=.o) -lcublas -o $(SOURCE:.c=)_SP_$@
+
+	$(CC) -DCUBLAS_GFORTRAN \
+		-I$(CUDAINC) -L$(CUDALIB) $(CFLAGS) -DDOUBLE -DTHUNKING \
+		$(LDFLAGS) $(DIRECTIVES) $(SOURCE) \
+		$(THUNKING:.c=.o) -lcublas -o $(SOURCE:.c=)_DP_$@
+
+clean: $(SOURCE)
+	find . -name "$(SOURCE:.c=)_*" -exec rm {} \;
+	find . -name "$(THUNKING:.c=)*" -exec rm {} \;
+	find . -name "*~" -exec rm {} \;
+	find . -name "$(CUDASRCINC)" -exec rm {} \;
+
+check: $(EXECUTABLE)
+
+	$(SOURCE:.c=)_SP_$(EXECUTABLE) 2 1
+

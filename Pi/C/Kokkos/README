@@ -1,0 +1,28 @@
+# To compile it under Debian Stretch
+# Current version is broken, take specific one...
+
+wget https://github.com/kokkos/kokkos/archive/2.7.00.tar.gz
+tar xzf 2.7.00.tar.gz
+sed -i 's/^host_compiler/host_compiler=\"clang++-3.8\"\n#host_compiler/g' kokkos-2.7.00/bin/nvcc_wrapper
+
+
+# Load cuda environment for lib64 and include folders
+. /usr/share/modules/init/bash
+module load cuda/9.0
+
+# Define the default compilers (must be installed)
+export CC=/usr/bin/clang-3.8
+export CXX=/usr/bin/clang++-3.8
+
+# 
+export KOKKOS_ENABLE_CUDA=1
+export KOKKOS_ENABLE_OPENMP=1
+export KOKKOS_ENABLE_HWLOC=1
+
+# To compile CUDA versions
+export KOKKOS_DEVICES=Cuda
+export KOKKOS_ARCH=Maxwell52
+
+# To compile OpenMP versions
+export KOKKOS_DEVICES=OpenMP
+
